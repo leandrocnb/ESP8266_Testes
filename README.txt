@@ -1,0 +1,1 @@
+Teste de configurações do ESP8266
