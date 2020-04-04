@@ -1,11 +1,32 @@
 #include <Arduino.h>
-#include <SPI.h>
-#include <MFRC522.h>
+#include "ACS712.h"
+ 
+// Estou usando ACS de 30A. Mude para o modelo que está usando. Valores possíveis: 5,20 e 30
+// Sensor ligado na porta analópgica A0
+ACS712 sensor(ACS712_30A, A0);
+ 
+void setup() {
+  // É necessário calibrar o sensor antes de usar a primeira vez com o método abaixo
+  Serial.begin(9600);
+  Serial.println("Aguarde. Calibrando..."); 
+  sensor.calibrate();
+  Serial.println("Fim da calibração");
+}
+ 
+void loop() {
+  // A frequência da corrente alternada no Brasil é 60 Hz. Mude caso necessário
+  // A voltagem, no meu caso é 127
+  delay(5000);
+  float V = 220;
+  float measure = sensor.getCurrentAC(60);
+  float I = (measure - (measure*0.243)); // Multiplica pela constante de compensação
+  float P = V * I;
+ 
+  Serial.println(String("Corrente = ") + I + " A");
+  Serial.println(String("Potência  = ") + P + " Watts");
+ 
+}
 
-#define SS_PIN D4
-#define RST_PIN D2
-#define LedVerde 5
-#define LedVermelho 0
 /*		Placa NODEMCU
 * 	0	-> 	D3
 * 	1	-> 	TX
@@ -20,60 +41,14 @@
 * 	16	-> 	D0
 */
 
-MFRC522 mfrc522(SS_PIN, RST_PIN); //Instancia a Classe
-
-void setup() {
-  	// put your setup code here, to run once:
-	Serial.begin(9600);
-	SPI.begin(); //Inicia SPI bus
-	mfrc522.PCD_Init(); //Inicia MFRC522
-	Serial.println("RFID lendo UID");
-	pinMode(LedVerde, OUTPUT);
-	pinMode(LedVermelho, OUTPUT);
-}
-
-void loop() {
-	
-	// Procura por novas tags
-	if ( ! mfrc522.PICC_IsNewCardPresent()){
-		return;
-	}
-	// Seleciona uma das tags
-	if ( ! mfrc522.PICC_ReadCardSerial()){
-		return;
-	}
-	//Mostra UID na serial
-	Serial.println("Tag UID:");
-	String tagRecebida = "";
-	for (byte i = 0; i < mfrc522.uid.size; i++){
-		Serial.print(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " ");
-		Serial.print(mfrc522.uid.uidByte[i], HEX);
-		tagRecebida.concat(String(mfrc522.uid.uidByte[i] < 0x10 ? " 0" : " "));
-		tagRecebida.concat(String(mfrc522.uid.uidByte[i], HEX));
-	}
-	Serial.println();
-	tagRecebida.toUpperCase();
-	if (tagRecebida.substring(1) == "3A 23 6E 19"){
-		digitalWrite(LedVerde, HIGH);
-		delay(1000);
-		digitalWrite(LedVerde, LOW);
-	}
-	else
-	{
-		digitalWrite(LedVermelho, HIGH);
-		delay(1000);
-		digitalWrite(LedVermelho, LOW);
-		delay(1000);
-	}
-	
-		
-	// 
-	// digitalWrite(LedAmarelo, HIGH);
-	// delay(1000);
-	// digitalWrite(LedAmarelo, LOW);
-	// delay(1000);
-	// digitalWrite(LedVermelho, LOW);
-	// delay(1000);
-	// digitalWrite(LedVerde, LOW);
-	// delay(1000);
-}
+/*
+***Pinagem do Sensor RFID*** 	
+----RFID------ESP82660------
+*	3.3V	->	3.3V
+*	RST 	->	D2
+*	GND		->	GND
+*	MISO	->	D6
+*	MOSI	->	D7
+*	SCK		->	D5
+*	SDA		->	D4				
+*/
