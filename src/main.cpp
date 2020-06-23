@@ -1,54 +1,94 @@
-#include <Arduino.h>
-#include "ACS712.h"
  
-// Estou usando ACS de 30A. Mude para o modelo que está usando. Valores possíveis: 5,20 e 30
-// Sensor ligado na porta analópgica A0
-ACS712 sensor(ACS712_30A, A0);
- 
-void setup() {
-  // É necessário calibrar o sensor antes de usar a primeira vez com o método abaixo
-  Serial.begin(9600);
-  Serial.println("Aguarde. Calibrando..."); 
-  sensor.calibrate();
-  Serial.println("Fim da calibração");
-}
- 
-void loop() {
-  // A frequência da corrente alternada no Brasil é 60 Hz. Mude caso necessário
-  // A voltagem, no meu caso é 127
-  delay(5000);
-  float V = 220;
-  float measure = sensor.getCurrentAC(60);
-  float I = (measure - (measure*0.243)); // Multiplica pela constante de compensação
-  float P = V * I;
- 
-  Serial.println(String("Corrente = ") + I + " A");
-  Serial.println(String("Potência  = ") + P + " Watts");
- 
-}
-
-/*		Placa NODEMCU
-* 	0	-> 	D3
-* 	1	-> 	TX
-* 	2	-> 	D4
-* 	3	-> 	RX
-* 	4	-> 	D2
-* 	5	-> 	D1
-* 	12	-> 	D6
-* 	13	-> 	D7
-* 	14	-> 	D5
-* 	14	-> 	D8
-* 	16	-> 	D0
-*/
-
 /*
-***Pinagem do Sensor RFID*** 	
-----RFID------ESP82660------
-*	3.3V	->	3.3V
-*	RST 	->	D2
-*	GND		->	GND
-*	MISO	->	D6
-*	MOSI	->	D7
-*	SCK		->	D5
-*	SDA		->	D4				
+ * Created by K. Suwatchai (Mobizt)
+ * 
+ * Email: k_suwatchai@hotmail.com
+ * 
+ * Github: https://github.com/mobizt
+ * 
+ * Copyright (c) 2019 mobizt
+ * 
+ * This example is for the beginner
+ *
 */
+#include "FirebaseESP8266.h"
+#include <ESP8266WiFi.h>
+
+//1. Change the following info
+#define FIREBASE_HOST "testesp8266-50ca3.firebaseio.com"
+#define FIREBASE_AUTH "FZtCcCodtYjSyRYA1qtQAyrqXAzcJhZHR76nkpR1"
+#define WIFI_SSID "MaxtorIV"
+#define WIFI_PASSWORD "HYjvpJYv"
+
+
+//2. Define FirebaseESP8266 data object for data sending and receiving
+FirebaseData firebaseData;
+
+//Led
+#define  ledGreen 5
+
+void setup()
+{
+
+  Serial.begin(9600);
+
+  //Define  ledGreen Output
+  pinMode(ledGreen, OUTPUT);
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  Serial.print("Connecting to Wi-Fi");
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    Serial.print(".");
+    delay(300);
+  }
+  Serial.println();
+  Serial.print("Connected with IP: ");
+  Serial.println(WiFi.localIP());
+  Serial.println();
+
+
+  //3. Set your Firebase info
+  Firebase.begin(FIREBASE_HOST, FIREBASE_AUTH);
+
+  //4. Enable auto reconnect the WiFi when connection lost
+  Firebase.reconnectWiFi(true);
+
+  //5. Try to set int data to Firebase
+  //The set function returns bool for the status of operation
+  //firebaseData requires for sending the data
+  if(Firebase.setInt(firebaseData, "/LED_Status", 0))
+  {
+    //Success
+     Serial.println("Set int data success");
+
+  }else{
+    //Failed?, get the error reason from firebaseData
+    Serial.print("Error in setInt, ");
+    Serial.println(firebaseData.errorReason());
+  }
+
+}
+
+void loop()
+{
+   if(Firebase.getInt(firebaseData, "/LED_Status"))
+  {
+    //Success
+    Serial.print("Get int data success, int = ");
+    if(firebaseData.intData() == 1){
+      digitalWrite(ledGreen, HIGH);
+      Serial.println("Led ON");
+    }
+    else if (firebaseData.intData() == 0){
+      digitalWrite(ledGreen, LOW);
+      Serial.println("Led OFF");
+    }
+
+  }else{
+    //Failed?, get the error reason from firebaseData
+    Serial.print("Error in getInt, ");
+    Serial.println(firebaseData.errorReason());
+  }
+  delay(1000);
+}
